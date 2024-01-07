@@ -17,8 +17,10 @@ docker build --build-arg WB_API_KEY=<your_api_key> . -f Dockerfile --rm -t llm-f
 First navigate to this repo on your local machine. Then run the container:
 
 ```bash
-docker run --gpus all --name medical-summarization-and-transcription -it --rm -p 8888:8888 -p 8501:8501 -p 8000:8000 --entrypoint /bin/bash -v $(pwd):/medical-summarization-and-transcription llm-finetuning:latest
+docker run --gpus all --name medical-summarization-and-transcription -it --rm -p 8888:8888 -p 8501:8501 -p 8000:8000 --entrypoint /bin/bash -w /medical-summarization-and-transcription -v $(pwd):/medical-summarization-and-transcription llm-finetuning:latest
 ```
+
+docker run --name medical-summarization-and-transcription -it --rm -p 8887:8887 --entrypoint /bin/bash -w /medical-summarization-and-transcription -v $(pwd):/medical-summarization-and-transcription llm-finetuning:latest
 
 ### Run jupyter from the container
 Inside the Container:
@@ -47,6 +49,7 @@ localhost:8501
     1. Models:
         1. https://huggingface.co/Falconsai/medical_summarization
         2. https://huggingface.co/facebook/bart-large-cnn/discussions 
+        3. https://huggingface.co/Stancld/longt5-tglobal-large-16384-pubmed-3k_steps
     2. Dataset:
         1. https://huggingface.co/datasets/ccdv/pubmed-summarization
     3. Evaluation metric: rouge
