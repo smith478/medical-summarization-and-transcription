@@ -20,8 +20,6 @@ First navigate to this repo on your local machine. Then run the container:
 docker run --gpus all --name medical-summarization-and-transcription -it --rm -p 8888:8888 -p 8501:8501 -p 8000:8000 --entrypoint /bin/bash -w /medical-summarization-and-transcription -v $(pwd):/medical-summarization-and-transcription llm-finetuning:latest
 ```
 
-docker run --name medical-summarization-and-transcription -it --rm -p 8887:8887 --entrypoint /bin/bash -w /medical-summarization-and-transcription -v $(pwd):/medical-summarization-and-transcription llm-finetuning:latest
-
 ### Run jupyter from the container
 Inside the Container:
 ```bash
