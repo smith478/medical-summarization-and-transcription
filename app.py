@@ -1,4 +1,6 @@
 import io
+import nltk
+import numpy as np
 import soundfile as sf
 import streamlit as st
 from transformers import WhisperProcessor, WhisperForConditionalGeneration, AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
@@ -28,6 +30,11 @@ def load_summarization_model():
 def load_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(SUMMARIZATION_PATH)
     return tokenizer
+
+# nltk.download('punkt')
+def split_into_sentences(text):
+    sentences = nltk.sent_tokenize(text)
+    return '\n'.join(sentences)
 
 model = load_model()
 processor = load_processor()
@@ -65,18 +72,26 @@ def main():
 
         print(f'Input audio: {input_audio_data}')
         print(f'Sample rate: {loaded_sample_rate}')
-        print('Running processor')
-        input_features = processor(input_audio_data.T, sampling_rate=loaded_sample_rate, return_tensors="pt").input_features 
-        # generate token ids
-        print('Running model')
-        predicted_ids = model.generate(input_features)
+        
+        # Calculate the number of samples per chunk
+        samples_per_chunk = int(loaded_sample_rate * 30)
 
-        print('Decoding transcription')
-        transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
-        print(transcription)
+        # Split the audio data into chunks
+        chunks = np.array_split(input_audio_data, np.ceil(len(input_audio_data) / samples_per_chunk))
 
-        st.info(transcription[0])
-        st.write(f'Transcription: {transcription[0]}')
+        transcriptions = []
+
+        for chunk in chunks:
+            input_features = processor(chunk.T, sampling_rate=loaded_sample_rate, return_tensors="pt").input_features 
+            predicted_ids = model.generate(input_features)
+            transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
+            transcriptions.append(transcription[0])
+
+        # Join the transcriptions together
+        transcription = ' '.join(transcriptions)
+
+        st.info(transcription)
+        st.write(f'Transcription: {transcription}')
 
         c0, c1 = st.columns([2, 2])
 
@@ -95,7 +110,8 @@ def main():
 
         # Summarize the extracted text
         summarizer = pipeline("summarization", model=summarization_model, tokenizer=tokenizer)
-        summary = summarizer(transcription[0], max_length=300, min_length=5, do_sample=False)[0]['summary_text']
+        summary = summarizer(transcription, max_length=300, min_length=5, do_sample=False)[0]['summary_text']
+        # st.write(f'Summary: {split_into_sentences(summary)}')
         st.write(f'Summary: {summary}')
 
 
