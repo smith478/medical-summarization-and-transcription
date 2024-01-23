@@ -1,6 +1,6 @@
 # Medical summarization and transcription
 
-This repo will contain explorations on using LLMs and ASR to process different types of medical data
+This repo will contain explorations on using LLMs and ASR to process different types of medical data. 
 
 ## Getting started
 
@@ -41,6 +41,11 @@ Host machine:
 ```bash
 localhost:8501
 ```
+
+## Examples
+- Evalueate pre-trained models on pubmed dataset: `./notebooks/dataset.ipynb`
+- Adjust audio sample rate to preprocess for Whisper model: `./notebooks/speech_sample_rate.ipynb`
+- Speech to text to summarization streamlit app: `./app.py`
 
 ## TODO
 1. Evaluate pre-trained models on pubmed dataset
