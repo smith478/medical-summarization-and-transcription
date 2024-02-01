@@ -3,12 +3,15 @@ import nltk
 import numpy as np
 import soundfile as sf
 import streamlit as st
-from transformers import WhisperProcessor, WhisperForConditionalGeneration, AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from transformers import WhisperProcessor, WhisperForConditionalGeneration, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering, pipeline
 
 TARGET_SAMPLE_RATE = 16000
 MODEL_PATH = 'openai/whisper-large-v3'
 SUMMARIZATION_PATH = "Falconsai/medical_summarization"
+QA_MODEL_PATH = "deepset/roberta-base-squad2"
 
+# Set page configuration to wide layout
+st.set_page_config(layout='wide')
 
 @st.cache_resource 
 def load_model():
@@ -31,6 +34,16 @@ def load_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(SUMMARIZATION_PATH)
     return tokenizer
 
+@st.cache_resource
+def load_qa_model():
+    model = AutoModelForQuestionAnswering.from_pretrained(QA_MODEL_PATH)
+    return model
+
+@st.cache_resource
+def load_qa_tokenizer():
+    tokenizer = AutoTokenizer.from_pretrained(QA_MODEL_PATH)
+    return tokenizer
+
 # nltk.download('punkt')
 def split_into_sentences(text):
     sentences = nltk.sent_tokenize(text)
@@ -40,6 +53,9 @@ model = load_model()
 processor = load_processor()
 summarization_model = load_summarization_model()
 tokenizer = load_tokenizer()
+# qa_model = load_qa_model()
+# qa_tokenizer = load_qa_tokenizer()
+# qa = pipeline("question-answering", model=qa_model, tokenizer=qa_tokenizer)
 
 def main():
     st.title("Speech to summarization")
@@ -91,7 +107,7 @@ def main():
         transcription = ' '.join(transcriptions)
 
         st.info(transcription)
-        st.write(f'Transcription: {transcription}')
+        # st.write(f'Transcription: {transcription}')
 
         c0, c1 = st.columns([2, 2])
 
@@ -112,7 +128,18 @@ def main():
         summarizer = pipeline("summarization", model=summarization_model, tokenizer=tokenizer)
         summary = summarizer(transcription, max_length=300, min_length=5, do_sample=False)[0]['summary_text']
         # st.write(f'Summary: {split_into_sentences(summary)}')
-        st.write(f'Summary: {summary}')
+        # st.write(f'Summary: {summary}')
+        
+        # Split the summary into sentences and display each sentence on a new line
+        sentences = summary.split('. ')
+        for sentence in sentences:
+            st.write(f'* {sentence}')
+
+        # Ask questions about the transcription
+        # question = st.text_input("Ask a question about the transcription:")
+        # if st.button('Submit'):
+        #     answer = qa(question=question, context=transcription)
+        #     st.write(f"Answer: {answer['answer']}") 
 
 
 if __name__ == "__main__":

@@ -9,3 +9,4 @@ datasets>=2.15.0
 einops 
 sentencepiece
 jupyterlab
+streamlit==1.30.0
