@@ -53,9 +53,12 @@ model = load_model()
 processor = load_processor()
 summarization_model = load_summarization_model()
 tokenizer = load_tokenizer()
-# qa_model = load_qa_model()
-# qa_tokenizer = load_qa_tokenizer()
-# qa = pipeline("question-answering", model=qa_model, tokenizer=qa_tokenizer)
+qa_model = load_qa_model()
+qa_tokenizer = load_qa_tokenizer()
+qa = pipeline("question-answering", model=qa_model, tokenizer=qa_tokenizer)
+
+def update_inference_required():
+    st.session_state['inference_required'] = True
 
 def main():
     st.title("Speech to summarization")
@@ -68,17 +71,16 @@ def main():
 
     st.text("")
 
+    if 'inference_required' not in st.session_state:
+        st.session_state['inference_required'] = True
+
     c1, c2, c3 = st.columns([1, 4, 1])
 
     with c2:
 
-        with st.form(key="my_form"):
+        audio_byte_data = st.file_uploader("", type=[".wav"], on_change=update_inference_required)
 
-            audio_byte_data = st.file_uploader("", type=[".wav"])
-
-            st.info(f"""👆 Upload a .wav file.""")
-
-            submit_button = st.form_submit_button(label="Transcribe")
+        st.info(f"""👆 Upload a .wav file.""")
 
     if audio_byte_data is not None:
         st.audio(audio_byte_data, format="wav")
@@ -95,18 +97,29 @@ def main():
         # Split the audio data into chunks
         chunks = np.array_split(input_audio_data, np.ceil(len(input_audio_data) / samples_per_chunk))
 
-        transcriptions = []
+        if st.session_state['inference_required']:
+            transcriptions = []
 
-        for chunk in chunks:
-            input_features = processor(chunk.T, sampling_rate=loaded_sample_rate, return_tensors="pt").input_features 
-            predicted_ids = model.generate(input_features)
-            transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
-            transcriptions.append(transcription[0])
+            for chunk in chunks:
+                input_features = processor(chunk.T, sampling_rate=loaded_sample_rate, return_tensors="pt").input_features 
+                predicted_ids = model.generate(input_features)
+                transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)
+                transcriptions.append(transcription[0])
 
-        # Join the transcriptions together
-        transcription = ' '.join(transcriptions)
+            # Join the transcriptions together
+            transcription = ' '.join(transcriptions)
 
-        st.info(transcription)
+            # Summarize the extracted text
+            summarizer = pipeline("summarization", model=summarization_model, tokenizer=tokenizer)
+            summary = summarizer(transcription, max_length=300, min_length=5, do_sample=False)[0]['summary_text']
+
+            # Update the session states
+            st.session_state['transcriptions'] = transcriptions
+            st.session_state['transcription'] = transcription
+            st.session_state['summary'] = summary
+            st.session_state['inference_required'] = False
+
+        st.info(st.session_state['transcription'])
         # st.write(f'Transcription: {transcription}')
 
         c0, c1 = st.columns([2, 2])
@@ -114,7 +127,7 @@ def main():
         with c0:
             st.download_button(
                 "Download the transcription",
-                transcription[0],
+                st.session_state['transcription'],
                 file_name=None,
                 mime=None,
                 key=None,
@@ -123,23 +136,20 @@ def main():
                 args=None,
                 kwargs=None,
             )
-
-        # Summarize the extracted text
-        summarizer = pipeline("summarization", model=summarization_model, tokenizer=tokenizer)
-        summary = summarizer(transcription, max_length=300, min_length=5, do_sample=False)[0]['summary_text']
-        # st.write(f'Summary: {split_into_sentences(summary)}')
-        # st.write(f'Summary: {summary}')
         
         # Split the summary into sentences and display each sentence on a new line
-        sentences = summary.split('. ')
+        sentences = st.session_state['summary'].split('. ')
         for sentence in sentences:
             st.write(f'* {sentence}')
 
-        # Ask questions about the transcription
-        # question = st.text_input("Ask a question about the transcription:")
-        # if st.button('Submit'):
-        #     answer = qa(question=question, context=transcription)
-        #     st.write(f"Answer: {answer['answer']}") 
+        with st.form('question_form'):
+            # Ask questions about the transcription
+            question = st.text_input("Ask a question about the transcription:")
+            submitted = st.form_submit_button('Submit Question')
+
+            if submitted:
+                answer = qa(question=question, context=st.session_state['transcription'])
+                st.write(f"Answer: {answer['answer']}") 
 
 
 if __name__ == "__main__":
