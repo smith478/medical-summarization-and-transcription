@@ -3,12 +3,21 @@ import nltk
 import numpy as np
 import soundfile as sf
 import streamlit as st
-from transformers import WhisperProcessor, WhisperForConditionalGeneration, AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering, pipeline
+import torch
+from transformers import WhisperProcessor, WhisperForConditionalGeneration, AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoModelForQuestionAnswering, pipeline
 
 TARGET_SAMPLE_RATE = 16000
 MODEL_PATH = 'openai/whisper-large-v3'
 SUMMARIZATION_PATH = "Falconsai/medical_summarization"
 QA_MODEL_PATH = "deepset/roberta-base-squad2"
+CHAT_MODEL_PATH = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+ABSTRACTIVE_SUMMARIZATION = False
+
+if ABSTRACTIVE_SUMMARIZATION:
+    # This is required for TinyLlama to work
+    torch.backends.cuda.enable_mem_efficient_sdp(False)
+    torch.backends.cuda.enable_flash_sdp(False)
 
 # Set page configuration to wide layout
 st.set_page_config(layout='wide')
@@ -44,14 +53,53 @@ def load_qa_tokenizer():
     tokenizer = AutoTokenizer.from_pretrained(QA_MODEL_PATH)
     return tokenizer
 
+@st.cache_resource
+def load_summarizer_model():
+    model = AutoModelForCausalLM.from_pretrained(CHAT_MODEL_PATH, torch_dtype="auto", trust_remote_code=True)
+    return model
+
+@st.cache_resource
+def load_summarizer_tokenizer():
+    tokenizer = AutoTokenizer.from_pretrained(CHAT_MODEL_PATH, trust_remote_code=True)
+    return tokenizer
+
 # nltk.download('punkt')
 def split_into_sentences(text):
     sentences = nltk.sent_tokenize(text)
     return '\n'.join(sentences)
 
+def summarize_text(text, model, tokenizer):
+    # prompt = f"""
+    # Provide a TL;DR for the following medical history:
+
+    # {text}
+
+    # TL;DR:
+
+    # """
+
+    prompt = f"""
+    Provide a short summary in 10 or fewer bullet points for the following medical history:
+
+    {text}
+
+    Bulletpoints:
+
+    """
+
+    inputs = tokenizer(prompt, return_tensors="pt", return_attention_mask=False)
+    outputs = model.generate(**inputs, max_length=2000)
+    summary = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+
+    return summary
+
 model = load_model()
 processor = load_processor()
-summarization_model = load_summarization_model()
+if ABSTRACTIVE_SUMMARIZATION:
+    summarization_model = load_summarizer_model()
+    summarization_tokenizer = load_summarizer_tokenizer()
+else:
+    summarization_model = load_summarization_model()
 tokenizer = load_tokenizer()
 qa_model = load_qa_model()
 qa_tokenizer = load_qa_tokenizer()
@@ -109,9 +157,13 @@ def main():
             # Join the transcriptions together
             transcription = ' '.join(transcriptions)
 
-            # Summarize the extracted text
-            summarizer = pipeline("summarization", model=summarization_model, tokenizer=tokenizer)
-            summary = summarizer(transcription, max_length=300, min_length=5, do_sample=False)[0]['summary_text']
+            if ABSTRACTIVE_SUMMARIZATION:
+                # Summarize the extracted text
+                summary = summarize_text(transcription, summarization_model, summarization_tokenizer)
+            else:
+                # Summarize the extracted text
+                summarizer = pipeline("summarization", model=summarization_model, tokenizer=tokenizer)
+                summary = summarizer(transcription, max_length=300, min_length=5, do_sample=False)[0]['summary_text']
 
             # Update the session states
             st.session_state['transcriptions'] = transcriptions
@@ -137,10 +189,13 @@ def main():
                 kwargs=None,
             )
         
-        # Split the summary into sentences and display each sentence on a new line
-        sentences = st.session_state['summary'].split('. ')
-        for sentence in sentences:
-            st.write(f'* {sentence}')
+        if ABSTRACTIVE_SUMMARIZATION:
+            st.write(f'Summary: {st.session_state["summary"]}')
+        else:
+            # Split the summary into sentences and display each sentence on a new line
+            sentences = st.session_state['summary'].split('. ')
+            for sentence in sentences:
+                st.write(f'* {sentence}')
 
         with st.form('question_form'):
             # Ask questions about the transcription
