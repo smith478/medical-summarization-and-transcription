@@ -10,14 +10,10 @@ TARGET_SAMPLE_RATE = 16000
 MODEL_PATH = 'openai/whisper-large-v3'
 SUMMARIZATION_PATH = "Falconsai/medical_summarization"
 QA_MODEL_PATH = "deepset/roberta-base-squad2"
-CHAT_MODEL_PATH = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+CHAT_MODEL_PATH = "berkeley-nest/Starling-LM-7B-alpha"
+LOCAL_CHAT_MODEL_PATH = f'saved_models/{CHAT_MODEL_PATH}'
 
-ABSTRACTIVE_SUMMARIZATION = False
-
-if ABSTRACTIVE_SUMMARIZATION:
-    # This is required for TinyLlama to work
-    torch.backends.cuda.enable_mem_efficient_sdp(False)
-    torch.backends.cuda.enable_flash_sdp(False)
+ABSTRACTIVE_SUMMARIZATION = True
 
 # Set page configuration to wide layout
 st.set_page_config(layout='wide')
@@ -55,7 +51,7 @@ def load_qa_tokenizer():
 
 @st.cache_resource
 def load_summarizer_model():
-    model = AutoModelForCausalLM.from_pretrained(CHAT_MODEL_PATH, torch_dtype="auto", trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(LOCAL_CHAT_MODEL_PATH, trust_remote_code=True)
     return model
 
 @st.cache_resource
@@ -68,18 +64,23 @@ def split_into_sentences(text):
     sentences = nltk.sent_tokenize(text)
     return '\n'.join(sentences)
 
+def get_text_after_keyword(text, keyword):
+    keyword_index = text.find(keyword)
+    if keyword_index == -1:
+        return None  # Keyword not found in text
+    keyword_index += len(keyword)
+    return text[keyword_index:].strip()
+
+def get_first_block_of_text(text):
+    # Split the text into blocks separated by blank lines
+    blocks = text.split('\n\n')
+    # Split the first block of text into lines and return the list of lines
+    return blocks[0].split('\n')
+
+
 def summarize_text(text, model, tokenizer):
-    # prompt = f"""
-    # Provide a TL;DR for the following medical history:
-
-    # {text}
-
-    # TL;DR:
-
-    # """
-
     prompt = f"""
-    Provide a short summary in 10 or fewer bullet points for the following medical history:
+    Provide a short and concise summary in a few bullet points for the following medical history. Exclude any normal findings from the summary, but include any measurements:
 
     {text}
 
@@ -88,8 +89,9 @@ def summarize_text(text, model, tokenizer):
     """
 
     inputs = tokenizer(prompt, return_tensors="pt", return_attention_mask=False)
-    outputs = model.generate(**inputs, max_length=2000)
+    outputs = model.generate(**inputs, max_length=1600)
     summary = tokenizer.batch_decode(outputs, skip_special_tokens=True)[0]
+    summary = summary.rstrip()
 
     return summary
 
@@ -160,6 +162,8 @@ def main():
             if ABSTRACTIVE_SUMMARIZATION:
                 # Summarize the extracted text
                 summary = summarize_text(transcription, summarization_model, summarization_tokenizer)
+                summary = get_text_after_keyword(summary, 'Bulletpoints:')
+                summary = get_first_block_of_text(summary)
             else:
                 # Summarize the extracted text
                 summarizer = pipeline("summarization", model=summarization_model, tokenizer=tokenizer)
@@ -190,7 +194,10 @@ def main():
             )
         
         if ABSTRACTIVE_SUMMARIZATION:
-            st.write(f'Summary: {st.session_state["summary"]}')
+            # st.write(f'Summary: {st.session_state["summary"]}')
+            st.write('Summary:')
+            for sentence in st.session_state['summary']:
+                st.text(f'* {sentence}')
         else:
             # Split the summary into sentences and display each sentence on a new line
             sentences = st.session_state['summary'].split('. ')
