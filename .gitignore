@@ -1,5 +1,4 @@
 *.ipynb_checkpoints
-*.wav
 saved_models/*
 
 # Byte-compiled / optimized / DLL files
