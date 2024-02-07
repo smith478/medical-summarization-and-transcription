@@ -1,12 +1,7 @@
 # Medical summarization and transcription
 
-This repo will contain explorations on using LLMs and ASR to process different types of medical data. Here is an example of the streamlit app. Below is a sample patient history. This can be
-uploaded to the streamlit app. The audio is then transcribed and finally summarized.
-
-<audio controls>
-  <source src="audio/sample_patient_history.wav" type="audio/wav">
-Your browser does not support the audio element.
-</audio>
+This repo will contain explorations on using LLMs and ASR to process different types of medical data. Here is an example of the streamlit app. Below is a sample transcribed patient history. This can then be summarized to pull out pertinant information. The audio clip used here is 
+`./audio/sample_patient_history.wav`.
 
 ![Demo Top](images/demo_top.png)
 ![Demo Bottom](images/demo_bottom.png)
