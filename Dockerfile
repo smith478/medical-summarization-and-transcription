@@ -14,8 +14,8 @@ ENV WB_API_KEY=${WB_API_KEY}
 # Copy the requirements.txt file from your local system to the Docker image
 COPY requirements.txt ./
 
-# Install libsndfile1 and ffmpeg
-RUN apt-get update && apt-get install -y libsndfile1 ffmpeg
+# Install sox, libsndfile1, and ffmpeg
+RUN apt-get update && apt-get install -y sox libsndfile1 ffmpeg
 
 # Upgrade pip in the Docker image
 RUN pip install --upgrade pip
