@@ -1,5 +1,6 @@
 *.ipynb_checkpoints
 saved_models/*
+notebooks/mono_audio.wav
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
