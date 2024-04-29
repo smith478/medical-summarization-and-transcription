@@ -69,3 +69,4 @@ localhost:8501
     2. Datasets:
         1. https://github.com/nazmulkazi/dataset_automated_medical_transcription
         2. https://mtsamples.com/ 
+4. Experiment with phi-3-mini 4k and 128k instruct models, experiment with llama 3 8B, 8B Instruct models.
